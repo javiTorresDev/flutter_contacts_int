@@ -432,7 +432,7 @@ public class SwiftFlutterContactsPlugin: NSObject, FlutterPlugin, FlutterStreamH
             name: "github.com/QuisApp/flutter_contacts/events",
             binaryMessenger: registrar.messenger()
         )
-        let rootViewController = UIApplication.shared.delegate!.window!!.rootViewController!
+        let rootViewController = UIApplication.shared.topViewController()
         let instance = SwiftFlutterContactsPlugin(rootViewController)
         registrar.addMethodCallDelegate(instance, channel: channel)
         eventChannel.setStreamHandler(instance)
