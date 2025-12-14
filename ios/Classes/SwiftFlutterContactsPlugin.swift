@@ -432,7 +432,12 @@ public class SwiftFlutterContactsPlugin: NSObject, FlutterPlugin, FlutterStreamH
             name: "github.com/QuisApp/flutter_contacts/events",
             binaryMessenger: registrar.messenger()
         )
-        let rootViewController = UIApplication.shared.topViewController()
+
+        guard let rootViewController = getTopViewController() else {
+            NSLog("flutter_contacts: Failed to get root view controller. Plugin registration aborted.")
+            return
+        }
+
         let instance = SwiftFlutterContactsPlugin(rootViewController)
         registrar.addMethodCallDelegate(instance, channel: channel)
         eventChannel.setStreamHandler(instance)
@@ -440,6 +445,29 @@ public class SwiftFlutterContactsPlugin: NSObject, FlutterPlugin, FlutterStreamH
 
     init(_ rootViewController: UIViewController) {
         self.rootViewController = rootViewController
+    }
+
+    private static func getTopViewController() -> UIViewController? {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first(where: { $0.isKeyWindow }) ?? windowScene.windows.first else {
+            return nil
+        }
+
+        var topVC = window.rootViewController
+
+        while let presented = topVC?.presentedViewController {
+            topVC = presented
+        }
+
+        if let nav = topVC as? UINavigationController {
+            topVC = nav.visibleViewController
+        }
+
+        if let tab = topVC as? UITabBarController {
+            topVC = tab.selectedViewController
+        }
+
+        return topVC
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -694,31 +722,5 @@ public class SwiftFlutterContactsPlugin: NSObject, FlutterPlugin, FlutterStreamH
             result(nil)
             externalResult = nil
         }
-    }
-}
-
-extension UIApplication {
-    func topViewController(base: UIViewController? = nil) -> UIViewController? {
-        let base = base ?? UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first?
-            .windows
-            .first { $0.isKeyWindow }?
-            .rootViewController
-
-        if let nav = base as? UINavigationController {
-            return topViewController(base: nav.visibleViewController)
-        }
-
-        if let tab = base as? UITabBarController,
-           let selected = tab.selectedViewController {
-            return topViewController(base: selected)
-        }
-
-        if let presented = base?.presentedViewController {
-            return topViewController(base: presented)
-        }
-
-        return base
     }
 }
