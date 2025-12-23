@@ -439,7 +439,7 @@ public class SwiftFlutterContactsPlugin: NSObject, FlutterPlugin, FlutterStreamH
         eventChannel.setStreamHandler(instance)
     }
 
-    init() {}
+    // init() {}
 
     // Obtener el viewController cuando realmente se necesite
     private func getRootViewController() -> UIViewController? {
