@@ -420,7 +420,7 @@ public enum FlutterContacts {
 
 @available(iOS 9.0, *)
 public class SwiftFlutterContactsPlugin: NSObject, FlutterPlugin, FlutterStreamHandler, CNContactViewControllerDelegate, CNContactPickerDelegate {
-    private let rootViewController: UIViewController
+    private weak var rootViewController: UIViewController?
     private var externalResult: FlutterResult?
 
     public static func register(with registrar: FlutterPluginRegistrar) {
@@ -433,18 +433,20 @@ public class SwiftFlutterContactsPlugin: NSObject, FlutterPlugin, FlutterStreamH
             binaryMessenger: registrar.messenger()
         )
 
-        guard let rootViewController = getTopViewController() else {
-            NSLog("flutter_contacts: Failed to get root view controller. Plugin registration aborted.")
-            return
-        }
-
-        let instance = SwiftFlutterContactsPlugin(rootViewController)
+        // NO obtener el viewController aquí, solo crear la instancia
+        let instance = SwiftFlutterContactsPlugin()
         registrar.addMethodCallDelegate(instance, channel: channel)
         eventChannel.setStreamHandler(instance)
     }
 
-    init(_ rootViewController: UIViewController) {
-        self.rootViewController = rootViewController
+    init() {}
+
+    // Obtener el viewController cuando realmente se necesite
+    private func getRootViewController() -> UIViewController? {
+        if rootViewController == nil {
+            rootViewController = Self.getTopViewController()
+        }
+        return rootViewController
     }
 
     private static func getTopViewController() -> UIViewController? {
@@ -471,6 +473,14 @@ public class SwiftFlutterContactsPlugin: NSObject, FlutterPlugin, FlutterStreamH
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+
+        guard let rootVC = getRootViewController() else {
+            result(FlutterError(code: "NO_VIEW_CONTROLLER",
+                               message: "Unable to get root view controller",
+                               details: nil))
+            return
+        }
+
         switch call.method {
         case "requestPermission":
             DispatchQueue.global(qos: .userInteractive).async {
@@ -635,7 +645,7 @@ public class SwiftFlutterContactsPlugin: NSObject, FlutterPlugin, FlutterStreamH
                     contactView.delegate = self
                     // https://stackoverflow.com/a/39594589
                     let navigationController = UINavigationController(rootViewController: contactView)
-                    self.rootViewController.present(navigationController, animated: true, completion: nil)
+                    rootVC.present(navigationController, animated: true, completion: nil)
                     self.externalResult = result
                 }
             }
@@ -643,7 +653,7 @@ public class SwiftFlutterContactsPlugin: NSObject, FlutterPlugin, FlutterStreamH
             DispatchQueue.main.async {
                 let contactPicker = CNContactPickerViewController()
                 contactPicker.delegate = self
-                self.rootViewController.present(contactPicker, animated: true, completion: nil)
+                rootVC.present(contactPicker, animated: true, completion: nil)
                 self.externalResult = result
             }
         case "openExternalInsert":
@@ -667,7 +677,7 @@ public class SwiftFlutterContactsPlugin: NSObject, FlutterPlugin, FlutterStreamH
                 contactView.delegate = self
                 // https://stackoverflow.com/a/39594589
                 let navigationController = UINavigationController(rootViewController: contactView)
-                self.rootViewController.present(navigationController, animated: true, completion: nil)
+                rootVC.present(navigationController, animated: true, completion: nil)
                 self.externalResult = result
             }
         default:
@@ -703,8 +713,7 @@ public class SwiftFlutterContactsPlugin: NSObject, FlutterPlugin, FlutterStreamH
 
     @objc func contactViewControllerDidCancel() {
         if let result = externalResult {
-            let viewController: UIViewController? = UIApplication.shared.delegate?.window??.rootViewController
-            viewController?.dismiss(animated: true, completion: nil)
+            getRootViewController()?.dismiss(animated: true, completion: nil)
             result(nil)
             externalResult = nil
         }
